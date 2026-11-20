@@ -1,0 +1,12 @@
+{
+  "name": "folio-mit-revision",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=24"},
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node dev.mjs",
+    "test": "node --test"
+  }
+}
