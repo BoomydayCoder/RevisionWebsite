@@ -1,12 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from './build.mjs';
+import { courses } from './dist/content.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
@@ -72,7 +73,41 @@ export async function localBindings(dataDir) {
       }
     }
   };
-  return { DB, BUCKET, close: () => db.close() };
+  return { DB, BUCKET, notebooksDirectory: resolve(dataDir, 'notebooks'), close: () => db.close() };
+}
+
+// The operator installs optional authored notebooks in the local archive. Uploaded
+// PDFs and notes have separate storage and cannot create a notebook HTML route.
+export async function localFetch(worker, request, env) {
+  const { pathname } = new URL(request.url);
+  const isNotebook = pathname === '/notebooks' || pathname.startsWith('/notebooks/');
+  const isState = pathname === '/api/state' && request.method === 'GET';
+  if (!isNotebook && !isState) return worker.fetch(request, env, {});
+  const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
+  let entries = [];
+  if (env.notebooksDirectory) {
+    try { entries = await readdir(env.notebooksDirectory, { withFileTypes: true }); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  const files = new Set(entries.filter(entry => entry.isFile()).map(entry => entry.name));
+  const notebookCourses = courses.map(course => course.id).filter(id => files.has(id + '.html'));
+  if (isState) {
+    const response = await worker.fetch(request, env, {});
+    if (!response.ok) return response;
+    return Response.json({ ...await response.json(), notebookCourses }, { headers });
+  }
+  const id = notebookCourses.find(course => pathname === '/notebooks/' + course);
+  if (!id) return new Response('Notebook unavailable', { status: 404, headers });
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('Method not allowed', { status: 405, headers: { ...headers, Allow: 'GET, HEAD' } });
+  }
+  headers['Content-Type'] = 'text/html; charset=utf-8';
+  if (request.method === 'HEAD') return new Response(null, { headers });
+  try { return new Response(await readFile(resolve(env.notebooksDirectory, id + '.html')), { headers }); }
+  catch (error) {
+    if (error.code === 'ENOENT') return new Response('Notebook unavailable', { status: 404, headers });
+    throw error;
+  }
 }
 
 export function localHandler(worker, env) {
@@ -100,7 +135,7 @@ export function localHandler(worker, env) {
         init.body = Readable.toWeb(incoming);
         init.duplex = 'half';
       }
-      const response = await worker.fetch(new Request(url, init), env, {});
+      const response = await localFetch(worker, new Request(url, init), env);
       outgoing.writeHead(response.status, Object.fromEntries(response.headers));
       if (response.body) await pipeline(Readable.fromWeb(response.body), outgoing);
       else outgoing.end();

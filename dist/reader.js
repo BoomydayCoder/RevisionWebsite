@@ -302,6 +302,12 @@ export function renderCourse(ctx) {
   const head=el('header','rw-course-head');
   head.append(el('span','rw-code',course.code),el('h1','',course.name));
   if(course.description) head.append(el('p','rw-lede',course.description));
+  if(state.notebookCourses?.includes(course.id)) {
+    const notebook=el('a','rw-notebook-link','Open illustrated notebook');
+    notebook.href='/notebooks/'+encodeURIComponent(course.id);
+    notebook.prepend(icon('book',18));
+    head.append(notebook);
+  }
   root.append(head);
   const notes=state.notes.filter(n=>n.courseId===course.id);
   const bar=el('div','rw-bar');bar.append(el('h2','','Revision notes'),el('span','rw-count',String(notes.length)));root.append(bar);

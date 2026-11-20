@@ -35,6 +35,10 @@ node build.mjs
 node portable.mjs
 ```
 
+## Illustrated notebooks
+
+The local course library can open a private, self-contained HTML notebook alongside its study notes. For the Real Analysis course, place the notebook you authored in `.local-data/notebooks/analysis.html`. The **Open illustrated notebook** link appears in the course header. The same mechanism uses the course IDs `algebra`, `cosmology`, and `linguistics` for the other courses. This directory holds trusted, locally installed HTML and is excluded from Git.
+
 ## Hosting and source layout
 
 The application is a Cloudflare Worker ES module. The build embeds browser assets into `dist/server/index.js` and validates that it can serve the app shell. Browser source lives directly under `dist/`. Generated files live under `dist/server/` and `dist/.openai/`.

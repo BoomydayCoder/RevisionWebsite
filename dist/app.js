@@ -25,7 +25,7 @@ function icons(name,size=18){return '<svg width="'+size+'" height="'+size+'" vie
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const art=id=>'<canvas data-art="'+escape(id)+'" aria-hidden="true"></canvas>'
 function loadList(key){try{let value=JSON.parse(localStorage.getItem('folio:'+key));return Array.isArray(value)?value.filter(i=>typeof i==='string'):[]}catch{return []}}
-const state={courses,notes:[...starters],sources:[],saved:loadList('saved'),aiConfigured:false}
+const state={courses,notes:[...starters],sources:[],notebookCourses:[],saved:loadList('saved'),aiConfigured:false}
 let recent=loadList('recent'), dataError='', mobileOpen=false,route
 async function api(path,options){
   let response=await fetch(path, options)
@@ -36,6 +36,7 @@ async function api(path,options){
 }
 async function refresh(){
   const data=await api('/api/state')
+  state.notebookCourses=Array.isArray(data.notebookCourses)?data.notebookCourses:[]
   state.sources=data.sources || [];state.notes=[...(data.notes || []),...starters];state.aiConfigured=Boolean(data.aiConfigured);dataError=''
 }
 function save(){localStorage.setItem('folio:saved',JSON.stringify(state.saved));updateNav()}
